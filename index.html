@@ -2,18 +2,22 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Daily Image Calendar</title>
+<title>Daily Image Calendar (Offline)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   html, body {
     height: 100%;
     margin: 0;
     background: #fff;
+  }
+  .stage {
+    position: fixed;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
+    background: #fff;
   }
-  /* Image is 600x800 (portrait) but rotated for landscape display */
   #dailyImg {
     width: 600px;
     height: 800px;
@@ -22,43 +26,99 @@
     transform-origin: center center;
     image-rendering: auto;
   }
+  .fab {
+    position: fixed;
+    left: 10px;
+    top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 10;
+  }
+  .fab button {
+    min-width: 20px;
+    padding: 10px 10px;
+    font-size: 12px;
+    border: 1px solid #888;
+    background: #fff;
+    border-radius: 8px;
+  }
+  .fab button:active { background: #eee; }
 </style>
 </head>
 <body>
-  <img id="dailyImg" src="" alt="Daily Calendar">
+  <div class="fab">
+    <button id="prevBtn" alt="Prev">↑</button>
+    <button id="todayBtn" alt="Today">■</button>
+    <button id="nextBtn" alt="Next">↓</button>
+  </div>
+
+  <div class="stage">
+    <img id="dailyImg" alt="Daily Calendar">
+  </div>
 
 <script>
-  // ---- CONFIG ----
-  var FOLDER = "days";     // images subfolder
-  var PREFIX = "day";      // filename prefix
+  // --- CONFIG ---
+  var FOLDER = "days";     // local subfolder on SD card
+  var PREFIX = "day";      // filenames: day001.jpg ... day365.jpg
   var EXT = ".png";        // change to ".png" if needed
-  var PAD = 3;             // 001..365
-  var OFFSET_DAYS = 0;     // adjust if the device date is off (+1 or -1)
+  var PAD = 3;             // zero-padding: 001..365
+  var OFFSET_DAYS = 0;     // adjust if device date is off by a day (+1 / -1)
+  var FALLBACK_PREFIX = "art_"; // fallback file prefix
+  var FALLBACK_COUNT = 9;       // art_1 ... art_9
 
-  function pad(n, w){ var s=String(n); while(s.length<w) s="0"+s; return s; }
-  function isLeap(y){ return (y%4===0 && y%100!==0) || (y%400===0); }
-  function dayOfYear(d){
-    var start = new Date(d.getFullYear(), 0, 1);
-    return Math.floor((d - start) / 86400000) + 1;
-  }
-
+  // --- HELPERS ---
+  function pad(n,w){var s=String(n);while(s.length<w)s="0"+s;return s;}
+  function isLeap(y){return (y%4===0&&y%100!==0)||(y%400===0);}
+  function dayOfYear(d){var s=new Date(d.getFullYear(),0,1);return Math.floor((d-s)/86400000)+1;}
   function todayDOY(){
-    var t = new Date();
-    if (OFFSET_DAYS) t = new Date(t.getFullYear(), t.getMonth(), t.getDate() + OFFSET_DAYS);
+    var t=new Date();
+    if(OFFSET_DAYS){ t = new Date(t.getFullYear(), t.getMonth(), t.getDate()+OFFSET_DAYS); }
     var doy = dayOfYear(t);
-    if (isLeap(t.getFullYear()) && doy === 366) doy = 365; // map 366 -> 365
-    if (doy < 1) doy = 1; if (doy > 365) doy = 365;
+    if(isLeap(t.getFullYear()) && doy === 366) doy = 365;
+    if(doy < 1) doy = 1; if(doy > 365) doy = 365;
     return doy;
   }
+  function pathForDay(doy){
+    return FOLDER + "/" + PREFIX + pad(doy, PAD) + EXT + "?t=" + Date.now();
+  }
+  function pathForFallback(doy){
+    var idx = ((doy - 1) % FALLBACK_COUNT) + 1; // 1..FALLBACK_COUNT
+    return FOLDER + "/" + FALLBACK_PREFIX + idx + ".jpg" + "?t=" + Date.now();
+  }
+
+  // --- STATE ---
+  var current = todayDOY();
+  var img = document.getElementById("dailyImg");
 
   function setImageByDOY(doy){
     if (doy < 1) doy = 1; if (doy > 365) doy = 365;
-    var path = FOLDER + "/" + PREFIX + pad(doy, PAD) + EXT;
-    document.getElementById("dailyImg").src = path;
+    current = doy;
+    img.onerror = function(){
+      img.onerror = null;
+      img.src = pathForFallback(doy);
+    };
+    img.src = pathForDay(doy);
+    try { localStorage.setItem("last_doy", String(doy)); } catch(e){}
   }
 
-  // Load today's image on start
-  setImageByDOY(todayDOY());
+  function prev(){ setImageByDOY(current - 1 < 1 ? 365 : current - 1); }
+  function next(){ setImageByDOY(current + 1 > 365 ? 1 : current + 1); }
+  function goToday(){ setImageByDOY(todayDOY()); }
+
+  document.getElementById("prevBtn").onclick = prev;
+  document.getElementById("nextBtn").onclick = next;
+  document.getElementById("todayBtn").onclick = goToday;
+
+  document.addEventListener("visibilitychange", function(){
+    if(!document.hidden){
+      var last = parseInt((localStorage.getItem("last_doy")||"0"),10);
+      var now = todayDOY();
+      if(now !== last){ setImageByDOY(now); }
+    }
+  });
+
+  setImageByDOY(current);
 </script>
 </body>
 </html>
