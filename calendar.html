@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Daily Image Calendar</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Image is 600x800 (portrait) but rotated for landscape display */
+  #dailyImg {
+    width: 600px;
+    height: 800px;
+    object-fit: contain;
+    transform: rotate(90deg);
+    transform-origin: center center;
+    image-rendering: auto;
+  }
+</style>
+</head>
+<body>
+  <img id="dailyImg" src="" alt="Daily Calendar">
+
+<script>
+  // ---- CONFIG ----
+  var FOLDER = "days";     // images subfolder
+  var PREFIX = "day";      // filename prefix
+  var EXT = ".png";        // change to ".png" if needed
+  var PAD = 3;             // 001..365
+  var OFFSET_DAYS = 0;     // adjust if the device date is off (+1 or -1)
+
+  function pad(n, w){ var s=String(n); while(s.length<w) s="0"+s; return s; }
+  function isLeap(y){ return (y%4===0 && y%100!==0) || (y%400===0); }
+  function dayOfYear(d){
+    var start = new Date(d.getFullYear(), 0, 1);
+    return Math.floor((d - start) / 86400000) + 1;
+  }
+
+  function todayDOY(){
+    var t = new Date();
+    if (OFFSET_DAYS) t = new Date(t.getFullYear(), t.getMonth(), t.getDate() + OFFSET_DAYS);
+    var doy = dayOfYear(t);
+    if (isLeap(t.getFullYear()) && doy === 366) doy = 365; // map 366 -> 365
+    if (doy < 1) doy = 1; if (doy > 365) doy = 365;
+    return doy;
+  }
+
+  function setImageByDOY(doy){
+    if (doy < 1) doy = 1; if (doy > 365) doy = 365;
+    var path = FOLDER + "/" + PREFIX + pad(doy, PAD) + EXT;
+    document.getElementById("dailyImg").src = path;
+  }
+
+  // Load today's image on start
+  setImageByDOY(todayDOY());
+</script>
+</body>
+</html>
